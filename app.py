@@ -124,12 +124,21 @@ def get_video_url(episode_link):
 # Aplicación con Streamlit
 st.title('Scraping Dinámico de Series - enpantalla')
 
-# Input para ingresar el valor de "name"
-name_input = st.text_input("Introduce el valor de 'name' para buscar series:")
-
-# Reproductor de video inicial sin contenido, se actualizará dinámicamente
 video_container = st.empty()  # Creamos un espacio para el video
 
+# Función para almacenar el video actual en el estado de sesión
+def play_video(video_url):
+    if video_url:
+        video_container.video(video_url)
+    else:
+        st.write("No se pudo obtener el video.")
+
+# Input para ingresar el valor de "name"
+name_input = st.text_input("Introduce el valor de 'name' para buscar series:")
+if 'episodes' not in st.session_state:
+    st.session_state.episodes = []  # Inicializamos la lista de capítulos
+
+# Si ya se ingresó el nombre de la serie
 if name_input:
     st.write(f"Buscando series para: {name_input}")
     series_list = scrape_series(name_input)
@@ -142,27 +151,24 @@ if name_input:
         st.image(selected_series['image_url'], width=300)
         st.markdown(f"### {selected_series['title']}")
 
+        # Guardamos los episodios en el estado de la sesión si se presiona el botón
         if st.button("Mostrar capítulos"):
             serie_url = f"{selected_series['link']}"
-            episodes = scrape_serie_details(serie_url)
+            st.session_state.episodes = scrape_serie_details(serie_url)
 
-            if episodes:
-                selected_episode_title = st.selectbox("Selecciona un capítulo", [ep['title'] for ep in episodes])
-                selected_episode = next(ep for ep in episodes if ep['title'] == selected_episode_title)
+# Mostramos la lista de capítulos si ya fue cargada
+if st.session_state.episodes:
+    # Mostrar la lista de episodios
+    for idx, episode in enumerate(st.session_state.episodes):
+        # Mostrar información del episodio
+        st.image(episode['image_url'], width=200)
+        st.write(f"{episode['title']}")
 
-                st.image(selected_episode['image_url'], width=200)
-                st.write(f"Reproduciendo: {selected_episode['title']}")
-
-                # Obtener la URL del video al seleccionar el capítulo
-                video_link = f"{selected_episode['link']}"
-                actual_video_url = get_video_url(video_link)
-
-                # Actualizamos el reproductor con la URL del nuevo video
-                if actual_video_url:
-                    video_container.video(actual_video_url)
-                else:
-                    st.write("No se pudo obtener el video.")
-            else:
-                st.write("No se encontraron capítulos.")
-    else:
-        st.write("No se encontraron series.")
+        # Crear un botón de reproducción por cada capítulo
+        button_key = f"play_button_{idx}"
+        if st.button(f"Reproducir {episode['title']}", key=button_key):
+            video_link = f"{episode['link']}"
+            actual_video_url = get_video_url(video_link)
+            
+            # Reproducir el video seleccionado
+            play_video(actual_video_url)
