@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
+import re
+
 
 # Función para obtener las series
 def scrape_series(name):
@@ -42,56 +44,82 @@ def scrape_serie_details(serie_url):
 
 # Función para obtener la URL del video MP4
 def get_video_url(episode_link):
-    try:
-        response = requests.get(episode_link)
-        response.raise_for_status()
-        
-        # Obtener las cookies de la respuesta
-        cookies = response.cookies
+    print({episode_link})
+    ID_VIDEO = episode_link.split('/')[-1]
+    url_get = episode_link
+    headers_get = {
+        'Referer': episode_link,
+        'User-Agent': 'Mozilla/5.0'
+    }
 
-        soup = BeautifulSoup(response.content, 'html.parser')
+    # Hacer la solicitud GET
+    response_get = requests.get(url_get, headers=headers_get)
 
-        for cookie in cookies:
-            print(f"{cookie.name}: {cookie.value}")
-        
-        id_input = soup.find('input', {'name': 'id'}).get('value')
-        fname_input = soup.find('input', {'name': 'fname'}).get('value')
-        hash_input = soup.find('input', {'name': 'hash'}).get('value')
+    # Parsear el HTML con BeautifulSoup
+    soup = BeautifulSoup(response_get.text, 'html.parser')
 
-        a = 1
-        
-        if a == 1:
-            return f"https://14-ukr-sv.enpantallas.com/v/01/00018/{id_input}_n/n.mp4?t=OUm5m2-1tnd-ZANH8VeNlkYhnL3X16o9qZc6vQvoJOM&s=1725671077&e=43200&f=91557&sp=625&i=177.53"
+    # Extraer los campos ocultos (input hidden) del formulario
+    form_data = {}
+    for input_tag in soup.find_all('input', type='hidden'):
+        form_data[input_tag.get('name')] = input_tag.get('value')
 
-        referer = "https%3A%2F%2Fenpantallas.com%2Fcategory%2FPedro%2Bel%2Bescamoso%2B2%2BTemporada"
-        ## post to https://enpantallas.com/njpexnc5e3yy?op=download1&usr_login=Subiendo&id=njpexnc5e3yy&fname=pedro-el-escamoso-capitulo-1.mp4&referer=https%3A%2F%2Fenpantallas.com%2Fcategory%2FPedro%2Bel%2Bescamoso%2B2%2BTemporada&hash=91483-177-53-1725667877-cb17e183a43ca7f0319ee260796d35f5 but change with values obtained from the html
+    # Extraer el campo 'imhuman'
+    form_data['imhuman'] = '✔️ CLICK HERE TO WATCH VIDEO'
 
-        url_video_source = f"https://enpantallas.com/{id_input}?op=download1&usr_login=Subiendo&id={id_input}&fname={fname_input}&referer={referer}&hash={hash_input}"
+    # URL de acción del formulario POST
+    form_action = soup.find('form').get('action')
+    url_post = f"{url_get}"
 
-        
+    # Encabezados para la solicitud POST
+    headers_post = {
+        'Referer': episode_link,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0'
+    }
 
-    # https://14-ukr-sv.enpantallas.com/v/01/00018/njpexnc5e3yy_n/n.mp4?t=eZCzZ_aR4VaLcbNDVs4mRxRh8v11c2gepOxFJUtpmws&s=1725669207&e=43200&f=91483&sp=625&i=177.53
+    # Hacer la solicitud POST con los datos extraídos
+    response_post = requests.post(url_post, headers=headers_post, data=form_data)
 
-        ## is POST
-        response = requests.post(url_video_source, cookies=cookies)
+    ## from response_post.text extract the URL of the video in based from url part .enpantallas.com/i and acpture the first URL
 
-        soup_source = BeautifulSoup(response.content, 'html.parser')
+    ## hazl ocon regeex
+    fragmento = response_post.text
+    url_img = re.search(r'\[IMG\](.*?)\[/IMG\]', fragmento).group(1)
 
+    ## ok url is captured https://14-ukr-sv.enpantallas.com/i/01/00018/njpexnc5e3yy_t.jpg but we nee https://14-ukr-sv.enpantallas.com/i/01/00018
 
-        ## print in file
-        with open('file_source.html', 'w') as file:
-            file.write(str(soup_source))
+    url_img = url_img[:-7]
+    ## url_img is now https://14-ukr-sv.enpantallas.com/i/01/00018/njpexnc5e3y but we need https://14-ukr-sv.enpantallas.com/i/01/00018
+    # not work
 
-        video_tag = soup_source.find('video', class_='vjs-tech')
+    ## split with / and join the first 6 elements
+    url_img = '/'.join(url_img.split('/')[:6]) ## CAPTURED https://14-ukr-sv.enpantallas.com/i/01/
 
-        print(video_tag)
+    ## replace /i/ with /v/
+    url_video = url_img.replace('/i/', '/v/')
 
-        if video_tag:
-            return video_tag['src']
-        return None
-    except Exception as e:
-        st.error(f"Error al obtener el video: {e}")
-        return None
+    script_tag = re.search(r'<script type=\'text/javascript\'>eval(.*?)</script>', response_post.text, re.DOTALL).group(1)
+
+    ## we need to remove the eval function
+    script_tag = re.sub(r'eval\(.*?\)', '', script_tag)
+
+    n_video = ID_VIDEO + "_n"
+
+    t = script_tag.split(n_video)[0].split("|")[-2]
+
+    s = script_tag.split("vjsplayer")[1].split("|")[4]
+
+    e = script_tag.split("res|video")[1].split("|")[4]
+
+    f = script_tag.split("vjsplayer")[1].split("|")[7]
+
+    sp = script_tag.split("res|video")[1].split("|")[2]
+
+    i = 177.53
+
+    final_url = f"{url_video}/{n_video}/n.mp4?t={t}&s={s}&e={e}&f={f}&sp={sp}&i={i}"
+
+    return final_url
 
 # Aplicación con Streamlit
 st.title('Scraping Dinámico de Series')
