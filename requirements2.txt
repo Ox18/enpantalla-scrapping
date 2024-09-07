@@ -1,0 +1,4 @@
+beautifulsoup4==4.9.0
+requests==2.24.0
+streamlit>=1.2.0
+setuptools>=50.0.0
