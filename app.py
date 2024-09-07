@@ -122,7 +122,7 @@ def get_video_url(episode_link):
     return final_url
 
 # Aplicación con Streamlit
-st.title('Scraping Dinámico de Series')
+st.title('Scraping Dinámico de Series - enpantalla')
 
 # Input para ingresar el valor de "name"
 name_input = st.text_input("Introduce el valor de 'name' para buscar series:")
