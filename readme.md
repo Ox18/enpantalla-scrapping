@@ -1,4 +1,4 @@
 
 # DEMO
 
-[![Demo CountPages alpha](./demo.mp4)](https://www.youtube.com/watch?v=ek1j272iAmc)
+https://github.com/user-attachments/assets/7fc24da1-62e2-488b-9e48-f66358ff7fc0
